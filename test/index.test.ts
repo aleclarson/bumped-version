@@ -18,8 +18,11 @@ describe('getBumpedVersion', () => {
     const packageDir = createPackage({ version: '0.0.0' })
 
     expect(
-      getBumpedVersion(packageDir, () => {
-        throw new Error('git should not be called')
+      getBumpedVersion({
+        packageDir,
+        git: () => {
+          throw new Error('git should not be called')
+        },
       }),
     ).toBe('0.1.0')
   })
@@ -29,18 +32,20 @@ describe('getBumpedVersion', () => {
     mkdirSync(join(packageDir, '.git'))
     const calls: string[][] = []
 
-    const version = getBumpedVersion(packageDir, (args) => {
-      calls.push(args)
-      if (args[0] === 'rev-list') return 'abc123'
-      if (args[0] === 'rev-parse') return packageDir
-      if (args[0] === 'log') return 'fix: patch bug'
-      return ''
+    const version = getBumpedVersion({
+      packageDir,
+      git: (args) => {
+        calls.push(args)
+        if (args[0] === 'rev-list') return 'abc123'
+        if (args[0] === 'rev-parse') return packageDir
+        if (args[0] === 'log') return 'fix: patch bug'
+        return ''
+      },
     })
 
     expect(version).toBe('1.2.4')
     expect(calls[0]).toEqual(['rev-list', '-n', '1', '1.2.3'])
   })
-
   it('uses unscoped name tags when the package directory is inside a monorepo', () => {
     const packageDir = createPackage({
       name: '@scope/widget',
@@ -49,12 +54,15 @@ describe('getBumpedVersion', () => {
     const repoRoot = join(packageDir, '..', '..')
     const calls: string[][] = []
 
-    getBumpedVersion(packageDir, (args) => {
-      calls.push(args)
-      if (args[0] === 'rev-list') return 'abc123'
-      if (args[0] === 'rev-parse') return repoRoot
-      if (args[0] === 'log') return ''
-      return ''
+    getBumpedVersion({
+      packageDir,
+      git: (args) => {
+        calls.push(args)
+        if (args[0] === 'rev-list') return 'abc123'
+        if (args[0] === 'rev-parse') return repoRoot
+        if (args[0] === 'log') return ''
+        return ''
+      },
     })
 
     expect(calls[0]).toEqual(['rev-list', '-n', '1', 'widget@1.2.3'])
@@ -64,13 +72,15 @@ describe('getBumpedVersion', () => {
   it('bumps major for breaking commits', () => {
     const packageDir = createPackage({ version: '1.2.3' })
 
-    expect(getBumpedVersion(packageDir, createGit(packageDir, 'feat!: rewrite API'))).toBe('2.0.0')
+    expect(getBumpedVersion({ packageDir, git: createGit(packageDir, 'feat!: rewrite API') })).toBe(
+      '2.0.0',
+    )
   })
 
   it('bumps minor for feature commits', () => {
     const packageDir = createPackage({ version: '1.2.3' })
 
-    expect(getBumpedVersion(packageDir, createGit(packageDir, 'feat(ui): add option'))).toBe(
+    expect(getBumpedVersion({ packageDir, git: createGit(packageDir, 'feat(ui): add option') })).toBe(
       '1.3.0',
     )
   })
@@ -79,22 +89,33 @@ describe('getBumpedVersion', () => {
     const packageDir = createPackage({ version: '1.2.3' })
 
     expect(
-      getBumpedVersion(packageDir, createGit(packageDir, 'docs: update readme\nfix(ci): pipeline')),
+      getBumpedVersion({
+        packageDir,
+        git: createGit(packageDir, 'docs: update readme\nfix(ci): pipeline'),
+      }),
     ).toBe('1.2.4')
   })
 
   it('returns current version when no included commits exist', () => {
     const packageDir = createPackage({ version: '1.2.3' })
 
-    expect(getBumpedVersion(packageDir, createGit(packageDir, 'fix(ci): pipeline'))).toBe('1.2.3')
+    expect(getBumpedVersion({ packageDir, git: createGit(packageDir, 'fix(ci): pipeline') })).toBe(
+      '1.2.3',
+    )
   })
 
   it('treats 0.x.y as x major and y as minor or patch', () => {
     const packageDir = createPackage({ version: '0.4.7' })
 
-    expect(getBumpedVersion(packageDir, createGit(packageDir, 'feat!: rewrite API'))).toBe('0.5.0')
-    expect(getBumpedVersion(packageDir, createGit(packageDir, 'feat: add option'))).toBe('0.4.8')
-    expect(getBumpedVersion(packageDir, createGit(packageDir, 'refactor: simplify'))).toBe('0.4.8')
+    expect(getBumpedVersion({ packageDir, git: createGit(packageDir, 'feat!: rewrite API') })).toBe(
+      '0.5.0',
+    )
+    expect(getBumpedVersion({ packageDir, git: createGit(packageDir, 'feat: add option') })).toBe(
+      '0.4.8',
+    )
+    expect(getBumpedVersion({ packageDir, git: createGit(packageDir, 'refactor: simplify') })).toBe(
+      '0.4.8',
+    )
   })
 })
 

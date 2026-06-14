@@ -13,7 +13,9 @@ type PackageJson = {
 
 type GitCommand = (args: string[]) => string
 
-type GetBumpedVersionOptions = {
+type GetBumpedVersionInput = {
+  packageDir: string
+  git?: GitCommand
   verbose?: (message: string) => void
 }
 
@@ -23,17 +25,17 @@ const ciCommitPattern = /^\w+\(ci\)/
 const breakingCommitPattern = /^(fix|feat|docs|refactor)(?:\([^)]*\))?!:/
 const featCommitPattern = /^feat(?:\([^)]*\))?!?:/
 
-export function getBumpedVersion(
-  packageDir: string,
-  git: GitCommand = (args) =>
-    execFileSync('git', args, {
-      cwd: packageDir,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim(),
-  options: GetBumpedVersionOptions = {},
-) {
-  const verbose = options.verbose ?? (() => {})
+export function getBumpedVersion(input: GetBumpedVersionInput) {
+  const { packageDir } = input
+  const git =
+    input.git ??
+    ((args) =>
+      execFileSync('git', args, {
+        cwd: packageDir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }).trim())
+  const verbose = input.verbose ?? (() => {})
 
   verbose(`reading package in ${packageDir}`)
   const packageJson = readPackageJson(packageDir)
@@ -178,7 +180,7 @@ export function main(argv = process.argv.slice(2)) {
     throw new Error('usage: bumped-version [package-dir]')
   }
 
-  return getBumpedVersion(resolve(positionals[0] ?? process.cwd()), undefined, { verbose })
+  return getBumpedVersion({ packageDir: resolve(positionals[0] ?? process.cwd()), verbose })
 }
 
 function isCliEntrypoint(moduleUrl: string, argvPath: string | undefined) {
