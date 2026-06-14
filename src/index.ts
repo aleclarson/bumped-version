@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { relative, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 
 type PackageJson = {
   name?: unknown
@@ -181,7 +181,15 @@ export function main(argv = process.argv.slice(2)) {
   return getBumpedVersion(resolve(positionals[0] ?? process.cwd()), undefined, { verbose })
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]!).href) {
+function isCliEntrypoint(moduleUrl: string, argvPath: string | undefined) {
+  if (!argvPath) {
+    return false
+  }
+
+  return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(argvPath)
+}
+
+if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   try {
     console.log(main())
   } catch (error) {
