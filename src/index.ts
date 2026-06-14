@@ -11,11 +11,36 @@ type PackageJson = {
   private?: unknown
 }
 
-type GitCommand = (args: string[]) => string
+/**
+ * Synchronous git adapter used by {@link getBumpedVersion}.
+ *
+ * Receives git arguments without the leading `git` executable name and returns stdout as a string.
+ */
+export type GitCommand = (args: string[]) => string
 
-type GetBumpedVersionInput = {
+/**
+ * Inputs for {@link getBumpedVersion}.
+ */
+export type GetBumpedVersionInput = {
+  /**
+   * Directory that contains the `package.json` whose next version should be computed.
+   *
+   * Git commands run from this directory by default, so in a monorepo this should be the
+   * package directory rather than the repository root.
+   */
   packageDir: string
+
+  /**
+   * Optional git adapter used by tests or callers that need to run git in a custom environment.
+   *
+   * The adapter receives the git arguments without the leading `git` executable name and must
+   * return stdout as a string. The default adapter runs `git` synchronously in `packageDir`.
+   */
   git?: GitCommand
+
+  /**
+   * Receives progress messages, including default git commands, when the caller wants trace output.
+   */
   verbose?: (message: string) => void
 }
 
@@ -25,6 +50,20 @@ const ciCommitPattern = /^\w+\(ci\)/
 const breakingCommitPattern = /^(fix|feat|docs|refactor)(?:\([^)]*\))?!:/
 const featCommitPattern = /^feat(?:\([^)]*\))?!?:/
 
+/**
+ * Computes the next publish version for a package from its current `package.json` version and
+ * conventional commit subjects since the package's release tag.
+ *
+ * The package must be publishable (`private` must not be `true`) and its version must use
+ * `x.y.z` semver. A `0.0.0` package returns `0.1.0` without reading git history. Other packages
+ * look up the current release tag, ensure it is an ancestor of `HEAD`, then scan commits that
+ * touched `packageDir`.
+ *
+ * Included commit types are `fix`, `feat`, `docs`, and `refactor`; `(ci)`-scoped commits are
+ * ignored. Breaking included commits bump the major version for `1.x` packages and the minor
+ * version for `0.x` packages. Feature commits bump the minor version for `1.x` packages and the
+ * patch version for `0.x` packages. Other included commits bump the patch version.
+ */
 export function getBumpedVersion(input: GetBumpedVersionInput) {
   const { packageDir } = input
   const verbose = input.verbose ?? (() => {})
@@ -160,6 +199,13 @@ function bumpVersion(version: string, subjects: string[]) {
   return `${major}.${minor}.${patch}`
 }
 
+/**
+ * CLI entrypoint used by the `bumped-version` binary.
+ *
+ * Accepts an optional package directory positional argument and `--verbose`/`-v`. Returns the
+ * computed version string; the executable wrapper prints it to stdout and writes thrown error
+ * messages to stderr.
+ */
 export function main(argv = process.argv.slice(2)) {
   const { positionals, values } = parseArgs({
     args: argv,
