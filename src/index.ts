@@ -27,15 +27,17 @@ const featCommitPattern = /^feat(?:\([^)]*\))?!?:/
 
 export function getBumpedVersion(input: GetBumpedVersionInput) {
   const { packageDir } = input
+  const verbose = input.verbose ?? (() => {})
   const git =
     input.git ??
-    ((args) =>
-      execFileSync('git', args, {
+    ((args) => {
+      verbose(`git ${args.join(' ')}`)
+      return execFileSync('git', args, {
         cwd: packageDir,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
-      }).trim())
-  const verbose = input.verbose ?? (() => {})
+      }).trim()
+    })
 
   verbose(`reading package in ${packageDir}`)
   const packageJson = readPackageJson(packageDir)

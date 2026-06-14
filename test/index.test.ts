@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -46,6 +46,27 @@ describe('getBumpedVersion', () => {
     expect(version).toBe('1.2.4')
     expect(calls[0]).toEqual(['rev-list', '-n', '1', '1.2.3'])
   })
+
+  it('logs default git commands in verbose mode', () => {
+    const packageDir = createPackage({ version: '0.1.0' })
+    execFileSync('git', ['init'], { cwd: packageDir })
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: packageDir })
+    execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: packageDir })
+    execFileSync('git', ['add', 'package.json'], { cwd: packageDir })
+    execFileSync('git', ['commit', '-m', 'chore: initial release'], { cwd: packageDir })
+    execFileSync('git', ['tag', '0.1.0'], { cwd: packageDir })
+    writeFileSync(join(packageDir, 'README.md'), 'docs')
+    execFileSync('git', ['add', 'README.md'], { cwd: packageDir })
+    execFileSync('git', ['commit', '-m', 'docs: update readme'], { cwd: packageDir })
+    const messages: string[] = []
+
+    expect(
+      getBumpedVersion({ packageDir: realpathSync(packageDir), verbose: (message) => messages.push(message) }),
+    ).toBe('0.1.1')
+    expect(messages).toContain('git rev-list -n 1 0.1.0')
+    expect(messages).toContain('git rev-parse --show-toplevel')
+  })
+
   it('uses unscoped name tags when the package directory is inside a monorepo', () => {
     const packageDir = createPackage({
       name: '@scope/widget',
