@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "radashi": {
+      "source": "/Users/alec/dev/oss/radashi",
+      "sourceType": "local",
+      "computedHash": "25f0a08f84711553ab60836c285ee519aefe8f21c3c8521e5e07fb12565f047f"
+    }
+  }
+}
