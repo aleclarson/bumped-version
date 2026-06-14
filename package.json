@@ -33,7 +33,6 @@
     "@types/node": "^25.9.2",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",
-    "radashi": "^12.9.1",
     "tsdown": "^0.22.2",
     "tsnapi": "^0.3.3",
     "typescript": "^6.0.3",

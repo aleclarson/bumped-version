@@ -17,9 +17,6 @@ importers:
       oxlint:
         specifier: ^1.68.0
         version: 1.68.0
-      radashi:
-        specifier: ^12.9.1
-        version: 12.9.1
       tsdown:
         specifier: ^0.22.2
         version: 0.22.2(typescript@6.0.3)
@@ -929,10 +926,6 @@ packages:
   quansync@1.0.0:
     resolution: {integrity: sha512-5xZacEEufv3HSTPQuchrvV6soaiACMFnq1H8wkVioctoH3TRha9Sz66lOxRwPK/qZj7HPiSveih9yAyh98gvqA==}
 
-  radashi@12.9.1:
-    resolution: {integrity: sha512-HCvrL1Ag7qnyH11UiSWQaEIiizJ7kldHjBw63aELoum7C8nQrSLqotLDuKKvoRPtO0w8azCzUQcL3yrU3lBksw==}
-    engines: {node: '>=16.0.0'}
-
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
 
@@ -1756,8 +1749,6 @@ snapshots:
       source-map-js: 1.2.1
 
   quansync@1.0.0: {}
-
-  radashi@12.9.1: {}
 
   resolve-pkg-maps@1.0.0: {}
 
