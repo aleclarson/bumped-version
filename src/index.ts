@@ -79,6 +79,8 @@ export function getBumpedVersion(input: GetBumpedVersionInput) {
     '--format=%s',
     '--extended-regexp',
     '--grep=^(fix|feat|docs|refactor)(\\([^)]*\\))?!?:',
+    '--',
+    '.',
   ])
     .split('\n')
     .map((subject) => subject.trim())

@@ -90,6 +90,8 @@ describe('getBumpedVersion', () => {
       '--format=%s',
       '--extended-regexp',
       '--grep=^(fix|feat|docs|refactor)(\\([^)]*\\))?!?:',
+      '--',
+      '.',
     ])
   })
 
