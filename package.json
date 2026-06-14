@@ -7,6 +7,9 @@
     "type": "git",
     "url": "https://github.com/aleclarson/bumped-version.git"
   },
+  "bin": {
+    "bumped-version": "./dist/index.mjs"
+  },
   "files": [
     "dist",
     "docs",
