@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { parseArgs } from 'node:util'
-import { relative, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
@@ -72,17 +72,13 @@ export function getBumpedVersion(input: GetBumpedVersionInput) {
   verbose(`found release tag commit ${tagCommit}`)
   git(['merge-base', '--is-ancestor', tagCommit, 'HEAD'])
 
-  const repoRoot = git(['rev-parse', '--show-toplevel'])
-  const packagePathspec = relative(repoRoot, packageDir) || '.'
-  verbose(`scanning commits that touched ${packagePathspec}`)
+  verbose('scanning commits that touched the package directory')
   const subjects = git([
     'log',
     `${tagCommit}..HEAD`,
     '--format=%s',
     '--extended-regexp',
     '--grep=^(fix|feat|docs|refactor)(\\([^)]*\\))?!?:',
-    '--',
-    packagePathspec,
   ])
     .split('\n')
     .map((subject) => subject.trim())
