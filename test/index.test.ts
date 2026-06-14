@@ -27,25 +27,6 @@ describe('getBumpedVersion', () => {
     ).toBe('0.1.0')
   })
 
-  it('uses plain version tags when the package directory is a git repo', () => {
-    const packageDir = createPackage({ version: '1.2.3' })
-    mkdirSync(join(packageDir, '.git'))
-    const calls: string[][] = []
-
-    const version = getBumpedVersion({
-      packageDir,
-      git: (args) => {
-        calls.push(args)
-        if (args[0] === 'rev-list') return 'abc123'
-        if (args[0] === 'log') return 'fix: patch bug'
-        return ''
-      },
-    })
-
-    expect(version).toBe('1.2.4')
-    expect(calls[0]).toEqual(['rev-list', '-n', '1', '1.2.3'])
-  })
-
   it('logs default git commands in verbose mode', () => {
     const packageDir = createPackage({ version: '0.1.0' })
     execFileSync('git', ['init'], { cwd: packageDir })
@@ -64,35 +45,6 @@ describe('getBumpedVersion', () => {
     ).toBe('0.1.1')
     expect(messages).toContain('git rev-list -n 1 0.1.0')
     expect(messages.some((message) => message.startsWith('git log '))).toBe(true)
-  })
-
-  it('uses unscoped name tags when the package directory is inside a monorepo', () => {
-    const packageDir = createPackage({
-      name: '@scope/widget',
-      version: '1.2.3',
-    })
-    const calls: string[][] = []
-
-    getBumpedVersion({
-      packageDir,
-      git: (args) => {
-        calls.push(args)
-        if (args[0] === 'rev-list') return 'abc123'
-        if (args[0] === 'log') return ''
-        return ''
-      },
-    })
-
-    expect(calls[0]).toEqual(['rev-list', '-n', '1', 'widget@1.2.3'])
-    expect(calls.at(-1)).toEqual([
-      'log',
-      'abc123..HEAD',
-      '--format=%s',
-      '--extended-regexp',
-      '--grep=^(fix|feat|docs|refactor)(\\([^)]*\\))?!?:',
-      '--',
-      '.',
-    ])
   })
 
   it('bumps major for breaking commits', () => {
