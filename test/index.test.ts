@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getBumpedVersion, main } from '../src/index'
 
 const tempDirs: string[] = []
@@ -103,6 +103,21 @@ describe('main', () => {
     const packageDir = createPackage({ version: '0.0.0' })
 
     expect(main([packageDir])).toBe('0.1.0')
+  })
+
+  it('writes progress to stderr when verbose mode is enabled', () => {
+    const packageDir = createPackage({ version: '0.0.0' })
+    const write = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+
+    try {
+      expect(main(['--verbose', packageDir])).toBe('0.1.0')
+      expect(write).toHaveBeenCalledWith(`reading package in ${packageDir}\n`)
+      expect(write).toHaveBeenCalledWith(
+        'package version is 0.0.0; returning initial release version 0.1.0\n',
+      )
+    } finally {
+      write.mockRestore()
+    }
   })
 })
 

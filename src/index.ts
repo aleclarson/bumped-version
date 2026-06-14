@@ -13,6 +13,10 @@ type PackageJson = {
 
 type GitCommand = (args: string[]) => string
 
+type GetBumpedVersionOptions = {
+  verbose?: (message: string) => void
+}
+
 const versionPattern = /^(\d+)\.(\d+)\.(\d+)$/
 const commitTypePattern = /^(fix|feat|docs|refactor)(?:\([^)]*\))?!?:/
 const ciCommitPattern = /^\w+\(ci\)/
@@ -27,7 +31,11 @@ export function getBumpedVersion(
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim(),
+  options: GetBumpedVersionOptions = {},
 ) {
+  const verbose = options.verbose ?? (() => {})
+
+  verbose(`reading package in ${packageDir}`)
   const packageJson = readPackageJson(packageDir)
 
   if (packageJson.private === true) {
@@ -44,20 +52,25 @@ export function getBumpedVersion(
   }
 
   if (packageJson.version === '0.0.0') {
+    verbose('package version is 0.0.0; returning initial release version 0.1.0')
     return '0.1.0'
   }
 
+  verbose(`current package version is ${packageJson.version}`)
   const tagName = getTagName(packageDir, packageJson)
+  verbose(`looking up release tag ${tagName}`)
   const tagCommit = git(['rev-list', '-n', '1', tagName])
 
   if (!tagCommit) {
     throw new Error(`tag not found: ${tagName}`)
   }
 
+  verbose(`found release tag commit ${tagCommit}`)
   git(['merge-base', '--is-ancestor', tagCommit, 'HEAD'])
 
   const repoRoot = git(['rev-parse', '--show-toplevel'])
   const packagePathspec = relative(repoRoot, packageDir) || '.'
+  verbose(`scanning commits that touched ${packagePathspec}`)
   const subjects = git([
     'log',
     `${tagCommit}..HEAD`,
@@ -73,7 +86,11 @@ export function getBumpedVersion(
     .filter((subject) => commitTypePattern.test(subject))
     .filter((subject) => !ciCommitPattern.test(subject))
 
-  return bumpVersion(packageJson.version, subjects)
+  verbose(`found ${subjects.length} release-relevant commit${subjects.length === 1 ? '' : 's'}`)
+  const bumpedVersion = bumpVersion(packageJson.version, subjects)
+  verbose(`computed bumped version ${bumpedVersion}`)
+
+  return bumpedVersion
 }
 
 function readPackageJson(packageDir: string) {
@@ -142,17 +159,26 @@ function bumpVersion(version: string, subjects: string[]) {
 }
 
 export function main(argv = process.argv.slice(2)) {
-  const { positionals } = parseArgs({
+  const { positionals, values } = parseArgs({
     args: argv,
     allowPositionals: true,
     strict: true,
+    options: {
+      verbose: {
+        type: 'boolean',
+        short: 'v',
+      },
+    },
   })
+  const verbose = values.verbose
+    ? (message: string) => process.stderr.write(`${message}\n`)
+    : () => {}
 
   if (positionals.length > 1) {
     throw new Error('usage: bumped-version [package-dir]')
   }
 
-  return getBumpedVersion(resolve(positionals[0] ?? process.cwd()))
+  return getBumpedVersion(resolve(positionals[0] ?? process.cwd()), undefined, { verbose })
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]!).href) {
