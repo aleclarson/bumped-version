@@ -16,8 +16,9 @@ answers: "what version should this package publish next?"
 - Node.js with ESM support.
 - A publishable `package.json` with an `x.y.z` version. `private: true` packages are rejected.
 - Git history and release tags. Single-package repositories use the bare version tag, such as
-  `1.2.3`; monorepo package directories use `<unscoped-name>@<version>`, such as
-  `widget@1.2.3`.
+  `1.2.3`, or a `v`-prefixed version tag, such as `v1.2.3`; monorepo package directories use
+  `<unscoped-name>@<version>`, such as `widget@1.2.3`, or `<unscoped-name>@v<version>`, such as
+  `widget@v1.2.3`.
 - Conventional commit subjects starting with `fix`, `feat`, `docs`, or `refactor`, with optional
   scopes and `!` breaking markers.
 

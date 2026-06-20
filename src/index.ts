@@ -100,15 +100,9 @@ export function getBumpedVersion(input: GetBumpedVersionInput) {
   }
 
   verbose(`current package version is ${packageJson.version}`)
-  const tagName = getTagName(packageDir, packageJson)
-  verbose(`looking up release tag ${tagName}`)
-  const tagCommit = git(['rev-list', '-n', '1', tagName])
+  const { tagName, tagCommit } = findReleaseTag(packageDir, packageJson, git, verbose)
 
-  if (!tagCommit) {
-    throw new Error(`tag not found: ${tagName}`)
-  }
-
-  verbose(`found release tag commit ${tagCommit}`)
+  verbose(`found release tag ${tagName} at commit ${tagCommit}`)
   git(['merge-base', '--is-ancestor', tagCommit, 'HEAD'])
 
   verbose('scanning commits that touched the package directory')
@@ -149,9 +143,12 @@ function readPackageJson(packageDir: string) {
   return packageJson
 }
 
-function getTagName(packageDir: string, packageJson: PackageJson) {
+function getTagNames(packageDir: string, packageJson: PackageJson) {
+  const version = packageJson.version as string
+  const versionTags = [version, `v${version}`]
+
   if (existsSync(resolve(packageDir, '.git'))) {
-    return packageJson.version as string
+    return versionTags
   }
 
   if (typeof packageJson.name !== 'string') {
@@ -159,7 +156,33 @@ function getTagName(packageDir: string, packageJson: PackageJson) {
   }
 
   const unscopedName = packageJson.name.replace(/^@[^/]+\//, '')
-  return `${unscopedName}@${packageJson.version}`
+  return versionTags.map((versionTag) => `${unscopedName}@${versionTag}`)
+}
+
+function findReleaseTag(
+  packageDir: string,
+  packageJson: PackageJson,
+  git: GitCommand,
+  verbose: (message: string) => void,
+) {
+  const tagNames = getTagNames(packageDir, packageJson)
+
+  for (const tagName of tagNames) {
+    verbose(`looking up release tag ${tagName}`)
+
+    try {
+      const tagCommit = git(['rev-list', '-n', '1', tagName])
+      if (tagCommit) {
+        return { tagName, tagCommit }
+      }
+    } catch (error) {
+      if (tagName === tagNames.at(-1)) {
+        throw new Error(`tag not found: ${tagNames.join(' or ')}`, { cause: error })
+      }
+    }
+  }
+
+  throw new Error(`tag not found: ${tagNames.join(' or ')}`)
 }
 
 function bumpVersion(version: string, subjects: string[]) {

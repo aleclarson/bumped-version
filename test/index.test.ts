@@ -47,6 +47,49 @@ describe('getBumpedVersion', () => {
     expect(messages.some((message) => message.startsWith('git log '))).toBe(true)
   })
 
+  it('finds v-prefixed release tags when bare version tags are absent', () => {
+    const packageDir = createPackage({ version: '1.2.3' })
+    mkdirSync(join(packageDir, '.git'))
+    const seenTags: string[] = []
+
+    expect(
+      getBumpedVersion({
+        packageDir,
+        git: (args) => {
+          if (args[0] === 'rev-list') {
+            seenTags.push(args[3])
+            if (args[3] === 'v1.2.3') return 'abc123'
+            throw new Error('tag not found')
+          }
+          if (args[0] === 'log') return 'fix: patch bug'
+          return ''
+        },
+      }),
+    ).toBe('1.2.4')
+    expect(seenTags).toEqual(['1.2.3', 'v1.2.3'])
+  })
+
+  it('finds v-prefixed monorepo release tags when bare version tags are absent', () => {
+    const packageDir = createPackage({ name: '@scope/widget', version: '1.2.3' })
+    const seenTags: string[] = []
+
+    expect(
+      getBumpedVersion({
+        packageDir,
+        git: (args) => {
+          if (args[0] === 'rev-list') {
+            seenTags.push(args[3])
+            if (args[3] === 'widget@v1.2.3') return 'abc123'
+            throw new Error('tag not found')
+          }
+          if (args[0] === 'log') return 'fix: patch bug'
+          return ''
+        },
+      }),
+    ).toBe('1.2.4')
+    expect(seenTags).toEqual(['widget@1.2.3', 'widget@v1.2.3'])
+  })
+
   it('bumps major for breaking commits', () => {
     const packageDir = createPackage({ version: '1.2.3' })
 
