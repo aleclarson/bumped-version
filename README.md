@@ -14,7 +14,8 @@ answers: "what version should this package publish next?"
 ## Requirements
 
 - Node.js with ESM support.
-- A publishable `package.json` with an `x.y.z` version. `private: true` packages are rejected.
+- A `package.json` with an `x.y.z` version. `private: true` packages are rejected unless explicitly
+  allowed.
 - Git history and release tags. Single-package repositories use the bare version tag, such as
   `1.2.3`, or a `v`-prefixed version tag, such as `v1.2.3`; monorepo package directories use
   `<unscoped-name>@<version>`, such as `widget@1.2.3`, or `<unscoped-name>@v<version>`, such as
@@ -50,6 +51,12 @@ Use `--verbose` to see the package read and git commands used during the calcula
 bumped-version --verbose packages/widget
 ```
 
+Use `--allow-private` when the manifest tracks a release version but is not itself published.
+
+```sh
+bumped-version --allow-private .
+```
+
 ## API
 
 ```ts
@@ -57,6 +64,7 @@ import { getBumpedVersion } from 'bumped-version'
 import { fileURLToPath } from 'node:url'
 
 const version = getBumpedVersion({
+  allowPrivate: true,
   packageDir: fileURLToPath(new URL('./packages/widget', import.meta.url)),
 })
 
@@ -64,7 +72,9 @@ console.log(version)
 ```
 
 `getBumpedVersion` runs git synchronously by default. Tests or controlled environments can provide a
-`git(args)` adapter and a `verbose(message)` callback.
+`git(args)` adapter and a `verbose(message)` callback. Private manifests remain rejected by default;
+set `allowPrivate: true` only when `package.json` intentionally acts as a private release-version
+source.
 
 ## Version Rules
 

@@ -14,6 +14,20 @@ afterEach(() => {
 })
 
 describe('getBumpedVersion', () => {
+  it('rejects private packages by default', () => {
+    const packageDir = createPackage({ version: '0.0.0', private: true })
+
+    expect(() => getBumpedVersion({ packageDir })).toThrow(
+      'package.json must not have private: true',
+    )
+  })
+
+  it('allows private packages when explicitly enabled', () => {
+    const packageDir = createPackage({ version: '0.0.0', private: true })
+
+    expect(getBumpedVersion({ packageDir, allowPrivate: true })).toBe('0.1.0')
+  })
+
   it('returns 0.1.0 early for 0.0.0 packages', () => {
     const packageDir = createPackage({ version: '0.0.0' })
 
@@ -41,7 +55,10 @@ describe('getBumpedVersion', () => {
     const messages: string[] = []
 
     expect(
-      getBumpedVersion({ packageDir: realpathSync(packageDir), verbose: (message) => messages.push(message) }),
+      getBumpedVersion({
+        packageDir: realpathSync(packageDir),
+        verbose: (message) => messages.push(message),
+      }),
     ).toBe('0.1.1')
     expect(messages).toContain('git rev-list -n 1 0.1.0')
     expect(messages.some((message) => message.startsWith('git log '))).toBe(true)
@@ -101,9 +118,9 @@ describe('getBumpedVersion', () => {
   it('bumps minor for feature commits', () => {
     const packageDir = createPackage({ version: '1.2.3' })
 
-    expect(getBumpedVersion({ packageDir, git: createGit(packageDir, 'feat(ui): add option') })).toBe(
-      '1.3.0',
-    )
+    expect(
+      getBumpedVersion({ packageDir, git: createGit(packageDir, 'feat(ui): add option') }),
+    ).toBe('1.3.0')
   })
 
   it('bumps patch for non-feature included commits and filters ci commits', () => {
@@ -141,6 +158,12 @@ describe('getBumpedVersion', () => {
 })
 
 describe('main', () => {
+  it('parses --allow-private', () => {
+    const packageDir = createPackage({ version: '0.0.0', private: true })
+
+    expect(main(['--allow-private', packageDir])).toBe('0.1.0')
+  })
+
   it('parses an optional package directory positional', () => {
     const packageDir = createPackage({ version: '0.0.0' })
 

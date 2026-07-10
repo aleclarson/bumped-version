@@ -23,6 +23,14 @@ export type GitCommand = (args: string[]) => string
  */
 export type GetBumpedVersionInput = {
   /**
+   * Allow version inference when `package.json` has `private: true`.
+   *
+   * Private packages are rejected by default. Enable this for repositories that use a private
+   * manifest to track a release version without publishing that manifest as a package.
+   */
+  allowPrivate?: boolean
+
+  /**
    * Directory that contains the `package.json` whose next version should be computed.
    *
    * Git commands run from this directory by default, so in a monorepo this should be the
@@ -54,10 +62,10 @@ const featCommitPattern = /^feat(?:\([^)]*\))?!?:/
  * Computes the next publish version for a package from its current `package.json` version and
  * conventional commit subjects since the package's release tag.
  *
- * The package must be publishable (`private` must not be `true`) and its version must use
- * `x.y.z` semver. A `0.0.0` package returns `0.1.0` without reading git history. Other packages
- * look up the current release tag, ensure it is an ancestor of `HEAD`, then scan commits that
- * touched `packageDir`.
+ * By default, the package must be publishable (`private` must not be `true`); callers can opt in
+ * to private manifests with `allowPrivate`. Its version must use `x.y.z` semver. A `0.0.0`
+ * package returns `0.1.0` without reading git history. Other packages look up the current release
+ * tag, ensure it is an ancestor of `HEAD`, then scan commits that touched `packageDir`.
  *
  * Included commit types are `fix`, `feat`, `docs`, and `refactor`; `(ci)`-scoped commits are
  * ignored. Breaking included commits bump the major version for `1.x` packages and the minor
@@ -81,7 +89,7 @@ export function getBumpedVersion(input: GetBumpedVersionInput) {
   verbose(`reading package in ${packageDir}`)
   const packageJson = readPackageJson(packageDir)
 
-  if (packageJson.private === true) {
+  if (packageJson.private === true && !input.allowPrivate) {
     throw new Error('package.json must not have private: true')
   }
 
@@ -225,9 +233,9 @@ function bumpVersion(version: string, subjects: string[]) {
 /**
  * CLI entrypoint used by the `bumped-version` binary.
  *
- * Accepts an optional package directory positional argument and `--verbose`/`-v`. Returns the
- * computed version string; the executable wrapper prints it to stdout and writes thrown error
- * messages to stderr.
+ * Accepts an optional package directory positional argument, `--allow-private`, and
+ * `--verbose`/`-v`. Returns the computed version string; the executable wrapper prints it to
+ * stdout and writes thrown error messages to stderr.
  */
 export function main(argv = process.argv.slice(2)) {
   const { positionals, values } = parseArgs({
@@ -235,6 +243,9 @@ export function main(argv = process.argv.slice(2)) {
     allowPositionals: true,
     strict: true,
     options: {
+      'allow-private': {
+        type: 'boolean',
+      },
       verbose: {
         type: 'boolean',
         short: 'v',
@@ -249,7 +260,11 @@ export function main(argv = process.argv.slice(2)) {
     throw new Error('usage: bumped-version [package-dir]')
   }
 
-  return getBumpedVersion({ packageDir: resolve(positionals[0] ?? process.cwd()), verbose })
+  return getBumpedVersion({
+    allowPrivate: values['allow-private'],
+    packageDir: resolve(positionals[0] ?? process.cwd()),
+    verbose,
+  })
 }
 
 function isCliEntrypoint(moduleUrl: string, argvPath: string | undefined) {
