@@ -128,6 +128,27 @@ describe('getBumpedVersion', () => {
     expect(seenTags).toEqual(['widget@1.2.3', 'widget@v1.2.3'])
   })
 
+  it('uses an explicit release tag prefix', () => {
+    const packageDir = createPackage({ version: '1.2.3' })
+    const seenTags: string[] = []
+
+    expect(
+      getBumpedVersion({
+        packageDir,
+        tagPrefix: 'v',
+        git: (args) => {
+          if (args[0] === 'rev-list') {
+            seenTags.push(args[3])
+            return 'abc123'
+          }
+          if (args[0] === 'log') return 'fix: patch bug'
+          return ''
+        },
+      }),
+    ).toBe('1.2.4')
+    expect(seenTags).toEqual(['v1.2.3'])
+  })
+
   it('bumps major for breaking commits', () => {
     const packageDir = createPackage({ version: '1.2.3' })
 
@@ -202,6 +223,20 @@ describe('main', () => {
     execFileSync('git', ['commit', '-m', 'fix: update template'], { cwd: packageDir })
 
     expect(main(['--commit-path', 'template/', packageDir])).toBe('1.0.1')
+  })
+
+  it('parses --tag-prefix', () => {
+    const packageDir = createPackage({ version: '1.0.0' })
+
+    initGit(packageDir)
+    execFileSync('git', ['add', 'package.json'], { cwd: packageDir })
+    execFileSync('git', ['commit', '-m', 'chore: initial release'], { cwd: packageDir })
+    execFileSync('git', ['tag', 'release-1.0.0'], { cwd: packageDir })
+    writeFileSync(join(packageDir, 'README.md'), 'fixed')
+    execFileSync('git', ['add', 'README.md'], { cwd: packageDir })
+    execFileSync('git', ['commit', '-m', 'fix: update readme'], { cwd: packageDir })
+
+    expect(main(['--tag-prefix', 'release-', packageDir])).toBe('1.0.1')
   })
 
   it('parses an optional package directory positional', () => {

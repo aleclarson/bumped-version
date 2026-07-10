@@ -19,15 +19,15 @@ answers: "what version should this package publish next?"
 - Git history and release tags. Single-package repositories use the bare version tag, such as
   `1.2.3`, or a `v`-prefixed version tag, such as `v1.2.3`; monorepo package directories use
   `<unscoped-name>@<version>`, such as `widget@1.2.3`, or `<unscoped-name>@v<version>`, such as
-  `widget@v1.2.3`.
+  `widget@v1.2.3`. An explicit tag prefix can override this derivation.
 - Conventional commit subjects starting with `fix`, `feat`, `docs`, or `refactor`, with optional
   scopes and `!` breaking markers.
 
 ## Tradeoff
 
-The library favors a predictable, narrow rule set over configurability. You get deterministic
-version bumps from commit history with no runtime dependencies, but you do not get knobs for custom
-release policies.
+The library favors a predictable, narrow rule set with a few repository-layout options. You get
+deterministic version bumps from commit history with no runtime dependencies, but you do not get
+custom commit types or general release-policy configuration.
 
 ## Install
 
@@ -65,6 +65,14 @@ only changes under `template/`.
 bumped-version --allow-private --commit-path template/ .
 ```
 
+Use `--tag-prefix` to override tag derivation. This Coreframe-style invocation reads the private
+root version, considers only commits touching `template/`, and resolves version `1.0.0` from tag
+`v1.0.0`.
+
+```sh
+bumped-version --allow-private --commit-path template/ --tag-prefix v .
+```
+
 ## API
 
 ```ts
@@ -74,7 +82,8 @@ import { fileURLToPath } from 'node:url'
 const version = getBumpedVersion({
   allowPrivate: true,
   commitPath: 'template/',
-  packageDir: fileURLToPath(new URL('./packages/widget', import.meta.url)),
+  packageDir: fileURLToPath(new URL('.', import.meta.url)),
+  tagPrefix: 'v',
 })
 
 console.log(version)
@@ -87,6 +96,9 @@ source.
 
 `commitPath` is repository-relative. When omitted, the git history filter remains the package
 directory, preserving the default package-scoped behavior.
+
+`tagPrefix` is prepended directly to the manifest version. When supplied, only that tag name is
+looked up. When omitted, the default release tags described in Requirements are tried.
 
 ## Version Rules
 

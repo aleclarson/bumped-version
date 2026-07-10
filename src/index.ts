@@ -47,6 +47,14 @@ export type GetBumpedVersionInput = {
   packageDir: string
 
   /**
+   * Explicit prefix to prepend to the manifest version when looking up the release tag.
+   *
+   * For example, `v` resolves version `1.0.0` from tag `v1.0.0`. When omitted, release tags are
+   * derived from the repository layout and package name.
+   */
+  tagPrefix?: string
+
+  /**
    * Optional git adapter used by tests or callers that need to run git in a custom environment.
    *
    * The adapter receives the git arguments without the leading `git` executable name and must
@@ -73,8 +81,8 @@ const featCommitPattern = /^feat(?:\([^)]*\))?!?:/
  * By default, the package must be publishable (`private` must not be `true`); callers can opt in
  * to private manifests with `allowPrivate`. Its version must use `x.y.z` semver. A `0.0.0`
  * package returns `0.1.0` without reading git history. Other packages look up the current release
- * tag, ensure it is an ancestor of `HEAD`, then scan commits that touched `commitPath` or, by
- * default, `packageDir`.
+ * tag (optionally using `tagPrefix`), ensure it is an ancestor of `HEAD`, then scan commits that
+ * touched `commitPath` or, by default, `packageDir`.
  *
  * Included commit types are `fix`, `feat`, `docs`, and `refactor`; `(ci)`-scoped commits are
  * ignored. Breaking included commits bump the major version for `1.x` packages and the minor
@@ -117,7 +125,13 @@ export function getBumpedVersion(input: GetBumpedVersionInput) {
   }
 
   verbose(`current package version is ${packageJson.version}`)
-  const { tagName, tagCommit } = findReleaseTag(packageDir, packageJson, git, verbose)
+  const { tagName, tagCommit } = findReleaseTag(
+    packageDir,
+    packageJson,
+    input.tagPrefix,
+    git,
+    verbose,
+  )
 
   verbose(`found release tag ${tagName} at commit ${tagCommit}`)
   git(['merge-base', '--is-ancestor', tagCommit, 'HEAD'])
@@ -165,8 +179,13 @@ function readPackageJson(packageDir: string) {
   return packageJson
 }
 
-function getTagNames(packageDir: string, packageJson: PackageJson) {
+function getTagNames(packageDir: string, packageJson: PackageJson, tagPrefix: string | undefined) {
   const version = packageJson.version as string
+
+  if (tagPrefix !== undefined) {
+    return [`${tagPrefix}${version}`]
+  }
+
   const versionTags = [version, `v${version}`]
 
   if (existsSync(resolve(packageDir, '.git'))) {
@@ -184,10 +203,11 @@ function getTagNames(packageDir: string, packageJson: PackageJson) {
 function findReleaseTag(
   packageDir: string,
   packageJson: PackageJson,
+  tagPrefix: string | undefined,
   git: GitCommand,
   verbose: (message: string) => void,
 ) {
-  const tagNames = getTagNames(packageDir, packageJson)
+  const tagNames = getTagNames(packageDir, packageJson, tagPrefix)
 
   for (const tagName of tagNames) {
     verbose(`looking up release tag ${tagName}`)
@@ -248,8 +268,9 @@ function bumpVersion(version: string, subjects: string[]) {
  * CLI entrypoint used by the `bumped-version` binary.
  *
  * Accepts an optional package directory positional argument, `--allow-private`,
- * `--commit-path <path>`, and `--verbose`/`-v`. Returns the computed version string; the executable
- * wrapper prints it to stdout and writes thrown error messages to stderr.
+ * `--commit-path <path>`, `--tag-prefix <prefix>`, and `--verbose`/`-v`. Returns the computed
+ * version string; the executable wrapper prints it to stdout and writes thrown error messages to
+ * stderr.
  */
 export function main(argv = process.argv.slice(2)) {
   const { positionals, values } = parseArgs({
@@ -261,6 +282,9 @@ export function main(argv = process.argv.slice(2)) {
         type: 'boolean',
       },
       'commit-path': {
+        type: 'string',
+      },
+      'tag-prefix': {
         type: 'string',
       },
       verbose: {
@@ -281,6 +305,7 @@ export function main(argv = process.argv.slice(2)) {
     allowPrivate: values['allow-private'],
     commitPath: values['commit-path'],
     packageDir: resolve(positionals[0] ?? process.cwd()),
+    tagPrefix: values['tag-prefix'],
     verbose,
   })
 }

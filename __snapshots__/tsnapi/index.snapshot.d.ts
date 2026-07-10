@@ -6,6 +6,7 @@ export type GetBumpedVersionInput = {
   allowPrivate?: boolean;
   commitPath?: string;
   packageDir: string;
+  tagPrefix?: string;
   git?: GitCommand;
   verbose?: (_: string) => void;
 };
