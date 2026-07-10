@@ -31,6 +31,14 @@ export type GetBumpedVersionInput = {
   allowPrivate?: boolean
 
   /**
+   * Repository-relative path whose commits should affect the computed version.
+   *
+   * For example, use `template/` to version a root manifest from commits that touch only that
+   * directory. By default, commits are filtered to `packageDir`.
+   */
+  commitPath?: string
+
+  /**
    * Directory that contains the `package.json` whose next version should be computed.
    *
    * Git commands run from this directory by default, so in a monorepo this should be the
@@ -65,7 +73,8 @@ const featCommitPattern = /^feat(?:\([^)]*\))?!?:/
  * By default, the package must be publishable (`private` must not be `true`); callers can opt in
  * to private manifests with `allowPrivate`. Its version must use `x.y.z` semver. A `0.0.0`
  * package returns `0.1.0` without reading git history. Other packages look up the current release
- * tag, ensure it is an ancestor of `HEAD`, then scan commits that touched `packageDir`.
+ * tag, ensure it is an ancestor of `HEAD`, then scan commits that touched `commitPath` or, by
+ * default, `packageDir`.
  *
  * Included commit types are `fix`, `feat`, `docs`, and `refactor`; `(ci)`-scoped commits are
  * ignored. Breaking included commits bump the major version for `1.x` packages and the minor
@@ -113,7 +122,12 @@ export function getBumpedVersion(input: GetBumpedVersionInput) {
   verbose(`found release tag ${tagName} at commit ${tagCommit}`)
   git(['merge-base', '--is-ancestor', tagCommit, 'HEAD'])
 
-  verbose('scanning commits that touched the package directory')
+  const commitPath = input.commitPath ? `:(top,literal)${input.commitPath}` : '.'
+  verbose(
+    input.commitPath
+      ? `scanning commits that touched ${input.commitPath}`
+      : 'scanning commits that touched the package directory',
+  )
   const subjects = git([
     'log',
     `${tagCommit}..HEAD`,
@@ -121,7 +135,7 @@ export function getBumpedVersion(input: GetBumpedVersionInput) {
     '--extended-regexp',
     '--grep=^(fix|feat|docs|refactor)(\\([^)]*\\))?!?:',
     '--',
-    '.',
+    commitPath,
   ])
     .split('\n')
     .map((subject) => subject.trim())
@@ -233,9 +247,9 @@ function bumpVersion(version: string, subjects: string[]) {
 /**
  * CLI entrypoint used by the `bumped-version` binary.
  *
- * Accepts an optional package directory positional argument, `--allow-private`, and
- * `--verbose`/`-v`. Returns the computed version string; the executable wrapper prints it to
- * stdout and writes thrown error messages to stderr.
+ * Accepts an optional package directory positional argument, `--allow-private`,
+ * `--commit-path <path>`, and `--verbose`/`-v`. Returns the computed version string; the executable
+ * wrapper prints it to stdout and writes thrown error messages to stderr.
  */
 export function main(argv = process.argv.slice(2)) {
   const { positionals, values } = parseArgs({
@@ -245,6 +259,9 @@ export function main(argv = process.argv.slice(2)) {
     options: {
       'allow-private': {
         type: 'boolean',
+      },
+      'commit-path': {
+        type: 'string',
       },
       verbose: {
         type: 'boolean',
@@ -262,6 +279,7 @@ export function main(argv = process.argv.slice(2)) {
 
   return getBumpedVersion({
     allowPrivate: values['allow-private'],
+    commitPath: values['commit-path'],
     packageDir: resolve(positionals[0] ?? process.cwd()),
     verbose,
   })

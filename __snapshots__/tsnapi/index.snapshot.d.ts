@@ -4,6 +4,7 @@
 // #region Types
 export type GetBumpedVersionInput = {
   allowPrivate?: boolean;
+  commitPath?: string;
   packageDir: string;
   git?: GitCommand;
   verbose?: (_: string) => void;

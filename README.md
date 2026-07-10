@@ -5,7 +5,7 @@ conventional commit subjects since the last release tag.
 
 Use it when you want a small, synchronous version calculator for release scripts that already use
 git tags and conventional commit subjects. It is especially useful for repositories where only
-commits touching the package directory should affect that package's next version.
+commits touching a selected path should affect a package's next version.
 
 Do not use it if you need changelog generation, tag creation, prerelease channels, custom commit
 type rules, workspace graph analysis, or package-manager-aware publishing. `bumped-version` only
@@ -57,6 +57,14 @@ Use `--allow-private` when the manifest tracks a release version but is not itse
 bumped-version --allow-private .
 ```
 
+By default, commit history is filtered to the package directory. Use the repository-relative
+`--commit-path` option when the version source lives elsewhere, such as a root manifest that tracks
+only changes under `template/`.
+
+```sh
+bumped-version --allow-private --commit-path template/ .
+```
+
 ## API
 
 ```ts
@@ -65,6 +73,7 @@ import { fileURLToPath } from 'node:url'
 
 const version = getBumpedVersion({
   allowPrivate: true,
+  commitPath: 'template/',
   packageDir: fileURLToPath(new URL('./packages/widget', import.meta.url)),
 })
 
@@ -75,6 +84,9 @@ console.log(version)
 `git(args)` adapter and a `verbose(message)` callback. Private manifests remain rejected by default;
 set `allowPrivate: true` only when `package.json` intentionally acts as a private release-version
 source.
+
+`commitPath` is repository-relative. When omitted, the git history filter remains the package
+directory, preserving the default package-scoped behavior.
 
 ## Version Rules
 

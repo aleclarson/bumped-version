@@ -64,6 +64,27 @@ describe('getBumpedVersion', () => {
     expect(messages.some((message) => message.startsWith('git log '))).toBe(true)
   })
 
+  it('filters commits by a repository-relative path independently from packageDir', () => {
+    const packageDir = createPackage({ name: '@scope/widget', version: '1.0.0' })
+    const repositoryDir = join(packageDir, '..', '..')
+
+    initGit(repositoryDir)
+    writeFileSync(join(repositoryDir, 'template.txt'), 'outside')
+    mkdirSync(join(repositoryDir, 'template'))
+    writeFileSync(join(repositoryDir, 'template', 'README.md'), 'initial')
+    execFileSync('git', ['add', '.'], { cwd: repositoryDir })
+    execFileSync('git', ['commit', '-m', 'chore: initial release'], { cwd: repositoryDir })
+    execFileSync('git', ['tag', 'widget@1.0.0'], { cwd: repositoryDir })
+    writeFileSync(join(repositoryDir, 'template.txt'), 'feature outside filter')
+    execFileSync('git', ['add', 'template.txt'], { cwd: repositoryDir })
+    execFileSync('git', ['commit', '-m', 'feat: change unrelated file'], { cwd: repositoryDir })
+    writeFileSync(join(repositoryDir, 'template', 'README.md'), 'fixed')
+    execFileSync('git', ['add', 'template/README.md'], { cwd: repositoryDir })
+    execFileSync('git', ['commit', '-m', 'fix: update template'], { cwd: repositoryDir })
+
+    expect(getBumpedVersion({ packageDir, commitPath: 'template/' })).toBe('1.0.1')
+  })
+
   it('finds v-prefixed release tags when bare version tags are absent', () => {
     const packageDir = createPackage({ version: '1.2.3' })
     mkdirSync(join(packageDir, '.git'))
@@ -164,6 +185,25 @@ describe('main', () => {
     expect(main(['--allow-private', packageDir])).toBe('0.1.0')
   })
 
+  it('parses --commit-path', () => {
+    const packageDir = createPackage({ version: '1.0.0' })
+
+    initGit(packageDir)
+    mkdirSync(join(packageDir, 'template'))
+    writeFileSync(join(packageDir, 'template', 'README.md'), 'initial')
+    execFileSync('git', ['add', '.'], { cwd: packageDir })
+    execFileSync('git', ['commit', '-m', 'chore: initial release'], { cwd: packageDir })
+    execFileSync('git', ['tag', '1.0.0'], { cwd: packageDir })
+    writeFileSync(join(packageDir, 'README.md'), 'feature outside filter')
+    execFileSync('git', ['add', 'README.md'], { cwd: packageDir })
+    execFileSync('git', ['commit', '-m', 'feat: change unrelated file'], { cwd: packageDir })
+    writeFileSync(join(packageDir, 'template', 'README.md'), 'fixed')
+    execFileSync('git', ['add', 'template/README.md'], { cwd: packageDir })
+    execFileSync('git', ['commit', '-m', 'fix: update template'], { cwd: packageDir })
+
+    expect(main(['--commit-path', 'template/', packageDir])).toBe('1.0.1')
+  })
+
   it('parses an optional package directory positional', () => {
     const packageDir = createPackage({ version: '0.0.0' })
 
@@ -210,4 +250,10 @@ function createGit(packageDir: string, subjects: string) {
     if (args[0] === 'log') return subjects
     return ''
   }
+}
+
+function initGit(repositoryDir: string) {
+  execFileSync('git', ['init'], { cwd: repositoryDir })
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repositoryDir })
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: repositoryDir })
 }
